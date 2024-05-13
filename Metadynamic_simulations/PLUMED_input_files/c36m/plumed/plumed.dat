@@ -1,0 +1,36 @@
+#this is the master plumed.dat file for metadynamics simulations 
+
+RESTART
+
+# define groups 
+MOLINFO STRUCTURE=../system/template_md.pdb
+prot: GROUP ATOMS=1-339
+WHOLEMOLECULES ENTITY0=prot
+FLUSH STRIDE=1000
+
+#include file with definition of metadynamics CVs
+INCLUDE FILE=../plumed/CVs.dat
+
+#activate parallel bias metadynamics 
+PBMETAD ...
+    ARG=helix.lessthan,beta,rgyr,salt,e2e,dihcor,zeta,psi,hydro
+    HEIGHT=1.2
+    BIASFACTOR=30 #10*SQRT(NUM_OF_CVS)
+    TEMP=310
+    SIGMA=0.23,0.24,0.12,4.01,0.63,1.06,1.11,0.57,0.06
+    PACE=500
+    GRID_MIN=-1,-1,-1,-1,-0.1,-1,-pi,-pi,-1
+    GRID_MAX=100,100,20,400,10,50,pi,pi,10
+    GRID_SPACING=0.1,0.1,0.01,0.1,0.1,0.01,0.01,0.01,0.01
+    GRID_WSTRIDE=10000
+    GRID_RFILES=../GRID.helix.lessthan,../GRID.beta,../GRID.rgyr,../GRID.salt,../GRID.e2e,../GRID.dihcor,../GRID.zeta,../GRID.psi,../GRID.hydro
+    GRID_WFILES=../GRID.helix.lessthan,../GRID.beta,../GRID.rgyr,../GRID.salt,../GRID.e2e,../GRID.dihcor,../GRID.zeta,../GRID.psi,../GRID.hydro
+    FILE=../HILLS/helix.lessthan,../HILLS/beta,../HILLS/rgyr,../HILLS/salt,../HILLS/e2e,../HILLS/dihcor,../HILLS/zeta,../HILLS/psi,../HILLS/hydro
+    WALKERS_MPI
+    LABEL=pbmetad
+... PBMETAD
+
+#print out relevant info
+PRINT ARG=helix.lessthan,beta,rgyr,salt,e2e,dihcor,zeta,psi,hydro FILE=../COLVAR/COLVAR_PBMETAD STRIDE=500
+ENDPLUMED
+

@@ -1,0 +1,403 @@
+#!/usr/bin/perl
+use strict;
+use Getopt::Long;
+
+################################################################################
+#SSP
+#Joseph Marsh (marshj@gmail.com)
+#last updated Nov 30, 2009
+#See README for more details
+################################################################################
+
+################################################################################
+###########CONFIG - changes options if necessary################################ 
+
+###Random coil chemical shift reference files
+my %csref = ( 
+	CA => "REF/refdb.ca",
+	CB => "REF/refdb.cb",
+	CO => "REF/refdb.co",
+	HA => "REF/refdb.ha",
+	HN => "REF/refdb.hn",
+	N  => "REF/refdb.n"
+);
+
+###Secondary structure chemical shift and standard deviation reference files
+my %ssref = (
+	CA => "REF/refdb-ss.ca",
+	CB => "REF/refdb-ss.cb",
+	CO => "REF/refdb-ss.co",
+	HA => "REF/refdb-ss.ha",
+	HN => "REF/refdb-ss.hn",
+	N  => "REF/refdb-ss.n"
+);
+
+###Weighting of chemical shift types
+my %strand_bias = (
+	CA => 1,
+	CB => 1,
+	CO => 1,
+	HA => 1,
+	HN => 1,
+	N  => 1
+);
+my %helix_bias = (
+	CA => 1,
+	CB => 1,
+	CO => 1,
+	HA => 1,
+	HN => 1,
+	N  => 1
+);
+
+###SSP limit
+my $ss_limit = 1.2;
+
+###Ignore residue before proline
+my $ignore_pro = 1; 
+
+###Ignore beta glycines
+my $ignore_gly = 0;
+
+###Ignore cysteines
+my $ignore_cys = 0;
+
+###Ignore residues with no chemical shifts
+my $skip_blank = 1;
+
+###Weighted averaging: override with -m flag
+my $mavg = 5;
+
+###Ignore X - ignores residues X in sequence (otherwise program will halt upon finding an X)
+my $ignore_x = 1;
+
+#######END OF CONFIG - not necessary to change anything below this line#########
+###############################################################################
+
+
+###DECLARE SOME VARIABLES
+my (%flag, %strand_cs, %strand_sd, %coil_cs, %coil_sd, %helix_cs, %helix_sd, %cs); 
+my ($seqfile, $ref_flag, $ref_set, $secondary_flag, $cacb, $ss_total_flag, $use_pro_flag, $trades, $ens);
+my (@aa, @strand_sum, @helix_sum, @strand_total, @helix_total, @skip_res);
+my $seq_flag = 0;
+my $usage = "Usage: ssp.pl -s <SEQUENCE FILE> -ca <SHIFT FILE>...\nSee SSP.txt for more details.\n";
+my $allowed_residues = "A C D E F G H I K L M N P Q R S T V W Y X"; #ADD EXTRA RESIDUES HERE IF USED
+
+
+###GET COMMAND-LINE OPTIONS
+GetOptions("CA=s"=>\$flag{CA},
+	"CB=s"=>\$flag{CB},
+	"CO=s"=>\$flag{CO},
+	"HA=s"=>\$flag{HA},
+	"HN=s"=>\$flag{HN},
+	"N=s"=>\$flag{N},
+	"s=s"=>\$seqfile,
+	"m=s"=>\$mavg,
+	"r"=>\$ref_flag,
+	"d"=>\$secondary_flag,
+	"t"=>\$ss_total_flag,
+	"p"=>\$use_pro_flag,
+	"trades=s"=>\$trades,
+	"ens=s"=>\$ens, #ensemble ssp out
+	"f=s"=>\$seq_flag,
+	"o=s"=>\$ref_set);
+
+die "ERROR: No sequence file given!\n$usage" unless $seqfile;
+die "ERROR: At least one chemical shift file is required!\n$usage" unless (grep (defined, values %flag) > 0);
+
+$ignore_pro = 0 if ($use_pro_flag);
+
+if ($secondary_flag){
+	my $atoms_used = grep (defined, values %flag);
+	die "ERROR: Too many chemical shift files for secondary chemical shifts! Use only one, or two for Ca-Cb.\n" if ($atoms_used > 2);
+	if ($atoms_used==2){
+		die "ERROR: Too many chemical shift files for secondary chemical shifts! Use only one, or two for Ca-Cb.\n" unless ($flag{CA} && $flag{CB});
+		$cacb=1;	
+		print "#Ca - Cb secondary chemical shifts\n";
+	}
+	if ($atoms_used==1){
+		print "#Secondary chemical shifts\n";
+	}
+	print "#WARNING: No automatic referencing is performed for secondary chemical shifts. Manually input offset with -o flag\n" if ($ref_flag);
+}
+			
+
+###Load protein sequence
+open (SEQ, "< $seqfile") or die "ERROR: Can't open sequence file $seqfile!\n";
+my $seq;
+while (<SEQ>){
+	next if (/^!/); #comments can start with !
+	s/\s//g; #get rid of whitespace
+	tr/a-z/A-Z/; #convert to uppercase
+	$seq .= $_;
+}
+close SEQ;
+my $protein_size = length ($seq);
+foreach (0..($protein_size-1)){
+	$aa[$_] = substr ($seq, $_, 1);  ##aa sequence starts at 0 of array
+	die "ERROR: Not using X as a valid protein sequence character (set $ignore_x to 1)!\n" if (($aa[$_]eq'X') && ($ignore_x == 0));
+	die "ERROR: Invalid protein sequence character: $aa[$_]!\n" unless ($allowed_residues =~ $aa[$_]);
+}
+
+###What residues are we skipping over
+foreach (0..($protein_size-1)){
+	$skip_res[$_] = 1 if ( ($aa[$_+1]eq'P') && $ignore_pro);
+	$skip_res[$_] = 1 if ( ($aa[$_]eq'C') && $ignore_cys);
+	$skip_res[$_] = 1 if ( ($aa[$_]eq'X') && $ignore_x);
+	
+}
+
+###Go through each type of residue selected and load experimental and reference chemical shifts 
+foreach my $atom (keys %csref){
+	next unless ($flag{$atom}); #unless using atom
+	
+	#Load random coil shifts
+	open (CSREF, "< $csref{$atom}") or die "ERROR: Failed to open $csref{$atom}!\n";
+	while (<CSREF>){
+		next if ((/aa/) || (/^!/)); #skip header lines
+		die "ERROR: Improper format for $csref{$atom} random coil chemical shift file!\n" if (split != 2);
+		my @c = split; #split into columns, $c[0] is the residue, $c[1] is strand shift...
+		$coil_cs{$atom}{$c[0]} = $c[1];
+	}
+	close CSREF;
+	#Open chemical shift file from your protein
+	open (CS_INPUT, "< $flag{$atom}") or die "ERROR: Failed to open $flag{$atom}!\n";
+	while (<CS_INPUT>){
+		next if (/^!/);
+		die "ERROR: Improper format for $flag{$atom} chemical shift file!\n" if (split != 2);
+		my @c = split;
+		$c[0] += $seq_flag;
+		next if ($aa[$c[0]-1] eq 'X');
+		if ($c[0] > ($protein_size)){
+			print "#WARNING: $atom shift number $c[0] given for residues beyond given protein sequence. Ignoring.\n";
+			next;
+		}
+		if ($c[0] < 1){
+			print "#WARNING: $atom shift number $c[0] given for residues before start of protein sequence. Ignoring.\n";
+			next;
+		}
+		$cs{$atom}[$c[0]-1] = $c[1];  #the -1 is because my array starts at 0
+
+		unless ($coil_cs{$atom}{$aa[$c[0]-1]}){
+			die "ERROR: $atom chemical shift $c[0] of type $aa[$c[0]-1] has no coil value! Probably an error with chemical shift numbering. First residue of sequence given must correspond to 1 in chemical shift files. Correct this or use -n flag to offset numbering.\n";
+		}
+		my $ppmlim = 15;
+		if ( abs ($c[1] - $coil_cs{$atom}{$aa[$c[0]-1]})  > $ppmlim){
+			die "#WARNING: $atom chemical shift appears to be of the wrong type for res $c[0]\n";
+			print "#(Greater than $ppmlim ppm difference from random coil)\n";
+		}
+	}
+	close CS_INPUT;
+	next if $secondary_flag;
+
+	#Load secondary structure shifts and standard deviations
+	open (SSREF, "< $ssref{$atom}") or die "ERROR: Failed to open $ssref{$atom}!\n";
+	while (<SSREF>){
+		next if ((/aa/) || (/^!/)); #skip header lines
+		die "ERROR: Improper format for $ssref{$atom} secondary structure chemical shift file!\n" if (split != 5);
+		my @c = split;
+		$strand_cs{$atom}{$c[0]} = $c[1];
+		$strand_sd{$atom}{$c[0]} = $c[2];
+		$helix_cs{$atom}{$c[0]} = $c[3];
+		$helix_sd{$atom}{$c[0]} = $c[4];
+	}
+	close SSREF;
+}	
+
+my $ref = 0;
+if ($ref_flag){
+	if ($flag{CA} && $flag{CB}){
+		$ref = &reference_shifts() unless $cacb;
+	}else{
+		die "ERROR: Need CA and CB shifts for automatic rereferencing!\n";
+	}
+}
+
+#Rereferencing: applies both automatic ($ref) and manual ($ref_set) offsets
+if ($ref || $ref_set){
+	printf "#REFERENCING OFFSET: %.3f ppm\n", $ref + $ref_set;
+	foreach my $atom (keys %csref){
+		next unless (substr ($flag{$atom}, 0 ,1) eq 'C'); #only rereference carbon atoms
+		foreach(0..($protein_size-1)){
+			$cs{$atom}[$_] += ($ref + $ref_set) if ($cs{$atom}[$_]);
+		}
+	}
+}
+
+foreach my $atom (keys %csref){
+	next if ($secondary_flag);
+	next unless ($flag{$atom}); #unless using atom
+
+	#Go through protein sequence and start to calculate ssp values
+	foreach (0..($protein_size-1)){
+		next unless $cs{$atom}[$_];
+		next if $skip_res[$_];
+		#Calculate weighting factors and score
+		my $strand = $strand_cs{$atom}{$aa[$_]} - $coil_cs{$atom}{$aa[$_]};
+		my $helix = $helix_cs{$atom}{$aa[$_]} - $coil_cs{$atom}{$aa[$_]};
+		next if (($strand * $helix) > 0); #skip if helix and strand are on the same side of coil 
+		my $strand_weight = abs ($strand / $strand_sd{$atom}{$aa[$_]});
+		my $helix_weight = abs ($helix / $helix_sd{$atom}{$aa[$_]});
+		my $strand_dif = ($cs{$atom}[$_] - $coil_cs{$atom}{$aa[$_]});
+		my $helix_dif = ($cs{$atom}[$_] - $coil_cs{$atom}{$aa[$_]});
+		my $strand_percent = $strand_dif / $strand;
+		my $helix_percent = $helix_dif / $helix;
+		$strand_percent = $ss_limit if ($strand_percent > $ss_limit);
+		$strand_percent = 0 if ($strand_percent < 0);
+		next if (($aa[$_] eq 'G') && ($strand_percent > 0) && ($ignore_gly == 1)); #ignore strand glycines
+		$helix_percent = $ss_limit if ($helix_percent > $ss_limit);
+		$helix_percent = 0 if ($helix_percent < 0);
+		$strand_sum[$_] += $strand_percent * $strand_weight * $strand_bias{$atom};
+		$helix_sum[$_] += $helix_percent * $helix_weight * $helix_bias{$atom};
+		$strand_total[$_] += $strand_weight * $strand_bias{$atom} if ($strand_percent > 0);
+		$helix_total[$_] += $helix_weight * $helix_bias{$atom} if ($helix_percent > 0);
+	}
+}
+
+######CALCULATE FINAL SCORES AND OUTPUT
+my ($alpha_total, $beta_total, $num_res, $first_res, $last_res);
+my @score;
+foreach (0..($protein_size-1)){
+	my $num = $_;
+	#Print secondary chemical shifts
+	if ($secondary_flag){
+		if ($cacb){
+			next unless ($cs{CA}[$num] && $cs{CB}[$num]);
+			next if $skip_res[$_];
+			printf "%d\t%.2f\n", $num+1, $cs{CA}[$num] - $cs{CB}[$num] - $coil_cs{CA}{$aa[$num]} + $coil_cs{CB}{$aa[$num]};
+		}else{
+			foreach my $atom (keys %csref){
+				next unless ($cs{$atom}[$num]);
+				next if $skip_res[$_];
+				printf "%d\t%.2f\n", $num+1, $cs{$atom}[$num] - $coil_cs{$atom}{$aa[$num]};		
+			}
+		}
+	}
+			
+	next unless ($helix_total[$_] + $strand_total[$_] > 0);
+	$score[$_] = ($helix_sum[$_] - $strand_sum[$_]) / ($helix_total[$_] + $strand_total[$_]);
+	$first_res = $num if (($num < $first_res) || !($first_res));
+	$last_res = $num if (($num > $last_res) || !($last_res));
+
+	if ($mavg < 3){
+		printf "%d\t%.3f\n", $_+1, $score[$_]; #print score without averaging
+		if ($ss_total_flag){
+			$alpha_total += $score[$_] if ($score[$_] > 0);
+			$beta_total += -$score[$_] if ($score[$_] < 0);
+			$num_res++;
+		}
+	}
+	
+}
+	
+###Output score with weighted averaging
+if ($mavg > 2){
+	foreach(0..($protein_size-1)){
+	    my $window = $_ - int($mavg/2);
+	    my $b = 0;
+	    my $sum = 0;
+		foreach($window..($window+$mavg-1)){
+			if (($_ < $protein_size) && ($_ > 0)){
+				$b += ($strand_total[$_] + $helix_total[$_]); #weighting;
+				$sum += $score[$_] * ($strand_total[$_] + $helix_total[$_]);
+			}
+		}
+		$sum = $sum / $b if ($b);
+		if ($ss_total_flag){
+			$alpha_total += $sum if ($sum > 0);
+			$beta_total += -$sum if ($sum < 0);
+			$num_res++;
+		}
+		unless ($trades) {
+			unless ($ens){
+				printf "%d\t%.3f\n", $_+1, $sum if ( ( ($_ >= $first_res) && ($_ <= $last_res) && $score[$_]) || !$skip_blank );
+			} else { #ENSMEBLE output for ssp module
+				printf "%d\t%.3f\t%.3f\n", $_ +1, $sum-$ens, $sum+$ens;
+			}
+		} else { #trades output
+			my ($ssH, $ssS, $ssC);
+			my $sstype = 'C';
+			if ($sum > 0){
+				$ssH = int(100 * $sum * $trades);
+				$ssH = 100 if ($ssH > 100);
+				$ssS = 0;
+				$sstype = 'H' if $ssH > 50;
+			} else {
+				$ssS = int(-100 * $sum * $trades);
+				$ssS = 100 if ($ssS > 100);
+				$ssH = 0;
+				$sstype = 'S' if $ssS > 50;
+			}
+			$ssC = 100 - $ssH - $ssS;
+			printf "%s %s %d %d %d\n", $aa[$_], $sstype, $ssH, $ssS, $ssC;
+		}
+	}
+}
+
+if ($ss_total_flag){
+	$alpha_total = 100 * $alpha_total / $num_res;
+	$beta_total = 100 * $beta_total / $num_res;
+	printf "#ALPHA: %.1f\%\n#BETA: %.1f\%\n", $alpha_total, $beta_total;
+}
+
+###REREFERENCING FUNCTION
+#minimization is very simple assuming local minimum is global minimum (which it always is with CA and CB
+sub reference_shifts {
+	my $test_size = 0.5;
+	my $reftest = 0;
+	my $dir = 0; #direction
+	while ($test_size > 0.0002){ #Precision in rereferencing
+		my $x = &test_ref($reftest);
+		my $plus = &test_ref($reftest + $test_size);
+		if ($plus < $x){
+			$reftest += $test_size;
+			$dir = 1;
+		} else {
+			if ($dir == 1){
+				$dir = 0;
+			}
+		}
+		my $min = &test_ref($reftest - $test_size);
+		if ($min < $x){
+			$reftest -= $test_size;
+			$dir = -1;
+		
+		} else {
+			if ($dir == -1){
+				$dir = 0;
+			}
+		}
+		$test_size = ($test_size / 2) if ($dir == 0);
+	}
+	return $reftest;
+}
+	
+###Get an output value for a given referencing offset
+##The output of this function is minimized by adjusting the offset
+sub test_ref {
+	my $reftemp = $_[0];
+	my $diff_alpha = 0;
+	my $diff_beta = 0;
+	foreach(0..($protein_size-1)){
+		next if $skip_res[$_];
+		if ($cs{CA}[$_] && $cs{CB}[$_]){
+			my $dca = ($cs{CA}[$_] - $coil_cs{CA}{$aa[$_]} + $reftemp);  
+			my $dcb = ($cs{CB}[$_] - $coil_cs{CB}{$aa[$_]} + $reftemp);  
+			if ( ($dca - $dcb) >= 0){ #if alpha
+			#if ($dca * ($helix_cs{CA} - $coil_cs{CA}{$aa[$_]}) > 0){
+				my $alpha_ca = $helix_cs{CA}{$aa[$_]} - $coil_cs{CA}{$aa[$_]};
+				my $alpha_cb = $helix_cs{CB}{$aa[$_]} - $coil_cs{CB}{$aa[$_]};
+				my $target_cb = ($dca / $alpha_ca)*$alpha_cb;
+				$diff_alpha +=($dcb- $target_cb);
+			}
+			#if ($dcb * ($strand_cs{CB} - $coil_cs{CB}{$aa[$_]}) > 0){
+			if ( ($dca - $dcb) < 0){  # if beta 
+				my $beta_ca = $strand_cs{CA}{$aa[$_]} - $coil_cs{CA}{$aa[$_]};
+				my $beta_cb = $strand_cs{CB}{$aa[$_]} - $coil_cs{CB}{$aa[$_]};
+				my $target_ca = ($dcb / $beta_cb)*$beta_ca;
+				$diff_beta += ($dca - $target_ca);
+			}
+		}	
+	}
+        return (abs($diff_alpha) +  abs($diff_beta));
+}

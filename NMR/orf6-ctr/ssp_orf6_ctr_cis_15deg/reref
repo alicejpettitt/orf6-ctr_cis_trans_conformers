@@ -1,0 +1,245 @@
+#!/usr/bin/perl
+use strict;
+use Getopt::Long;
+
+################################################################################
+#reref.pl version 0.9
+#Joseph Marsh (marshj@gmail.com)
+#last updated July 23, 2006
+#See SSP.txt for more details
+################################################################################
+
+################################################################################
+###########CONFIG - changes options if necessary################################ 
+
+###Random coil chemical shift reference files
+my %csref;
+	$csref{CA} = "REF/refdb.ca";
+	$csref{CB} = "REF/refdb.cb";
+	$csref{CO} = "REF/refdb.co";
+	$csref{HA} = "REF/refdb.ha";
+	$csref{HN} = "REF/refdb.hn";
+	$csref{N} =  "REF/refdb.n";
+
+###Secondary structure chemical shift and standard deviation reference files
+my %ssref;
+	$ssref{CA} = "REF/refdb-ss.ca";
+	$ssref{CB} = "REF/refdb-ss.cb";
+	$ssref{CO} = "REF/refdb-ss.co";
+	$ssref{HA} = "REF/refdb-ss.ha";
+	$ssref{HN} = "REF/refdb-ss.hn";
+	$ssref{N} =  "REF/refdb-ss.n";
+
+###Ignore residue before proline
+my $ignore_pro = 1; 
+
+###Ignore cysteines
+my $ignore_cys = 0;
+
+#######END OF CONFIG - not necessary to change anything below this line#########
+###############################################################################
+
+
+###DECLARE SOME VARIABLES
+my (%flag, %strand_cs, %strand_sd, %coil_cs, %coil_sd, %helix_cs, %helix_sd, %cs); 
+my ($seqfile, $protein_size, $ref_flag, $ref_set, $use_pro_flag);
+my @aa;
+my $seq_flag = 0;
+my $usage = "Usage: ssp.pl -s <SEQUENCE FILE> -ca <SHIFT FILE>...\nSee SSP.txt for more details.\n";
+
+
+###GET COMMAND-LINE OPTIONS
+GetOptions("CA=s"=>\$flag{CA},
+	"CB=s"=>\$flag{CB},
+	"CO=s"=>\$flag{CO},
+	"HA=s"=>\$flag{HA},
+	"HN=s"=>\$flag{HN},
+	"N=s"=>\$flag{N},
+	"s=s"=>\$seqfile,
+	"r"=>\$ref_flag,
+	"p"=>\$use_pro_flag,
+	"f=s"=>\$seq_flag,
+	"o=s"=>\$ref_set);
+
+
+die "ERROR: No sequence file given!\n$usage" unless $seqfile;
+die "ERROR: At least one chemical shift file is required!\n$usage" unless (grep (defined, values %flag) > 0);
+
+$ignore_pro = 0 if ($use_pro_flag);
+
+###Load protein sequence
+open (SEQ, "< $seqfile") or die "ERROR: Can't open sequence file $seqfile!\n";
+my $seq;
+while (<SEQ>){
+	next if (/^!/); #comments can start with !
+	s/\s//g; #get rid of whitespace
+	tr/a-z/A-Z/; #convert to uppercase
+	$seq .= $_;
+}
+close SEQ;
+$protein_size = length ($seq);
+foreach (0..($protein_size-1)){
+	$aa[$_] = substr ($seq, $_, 1);  ##aa sequence starts at 0 of array
+    	die "ERROR: Invalid protein sequence character: $aa[$_]!\n" unless (($aa[$_]eq'A')||($aa[$_]eq'C')||($aa[$_]eq'D')||($aa[$_]eq'E')||($aa[$_]eq'F')||($aa[$_]eq'G') ||($aa[$_]eq'H')||($aa[$_]eq'I')||($aa[$_]eq'K')||($aa[$_]eq'L')||($aa[$_]eq'M')||($aa[$_]eq'N')||($aa[$_]eq'P')||($aa[$_]eq'Q')||($aa[$_]eq'R')||($aa[$_]eq'S')||($aa[$_]eq'T')||($aa[$_]eq'V')||($aa[$_]eq'W')||($aa[$_]eq'Y'));
+}
+
+###Go through each type of residue selected and load experimental and reference chemical shifts 
+foreach (keys %csref){
+	my $atom = $_;
+	next unless ($flag{$atom}); #unless using atom
+	
+	#Load random coil shifts
+	open (CSREF, "< $csref{$atom}") or die "ERROR: Failed to open $csref{$atom}!\n";
+	while (<CSREF>){
+		next if ((/aa/) || (/^!/)); #skip header lines
+		die "ERROR: Improper format for $csref{$atom} random coil chemical shift file!\n" if (split != 2);
+		my @c = split; #split into columns, $c[0] is the residue, $c[1] is strand shift...
+		$coil_cs{$atom}{$c[0]} = $c[1];
+	}
+	close CSREF;
+	#Open chemical shift file from your protein
+	open (CS_INPUT, "< $flag{$atom}") or die "ERROR: Failed to open $flag{$atom}!\n";
+	while (<CS_INPUT>){
+		next if (/^!/);
+		die "ERROR: Improper format for $flag{$atom} chemical shift file!\n" if (split != 2);
+		my @c = split;
+		$c[0] += $seq_flag;
+		next if ($aa[$c[0]-1] eq 'X');
+		if ($c[0] > ($protein_size)){
+			print "#WARNING: $atom shift number $c[0] given for residues beyond given protein sequence. Ignoring.\n";
+			next;
+		}
+		if ($c[0] < 1){
+			print "#WARNING: $atom shift number $c[0] given for residues before start of protein sequence. Ignoring.\n";
+			next;
+		}
+		$cs{$atom}[$c[0]-1] = $c[1];  #the -1 is because my array starts at 0
+
+		unless ($coil_cs{$atom}{$aa[$c[0]-1]}){
+			die "ERROR: $atom chemical shift $c[0] of type $aa[$c[0]-1] has no coil value! Probably an error with chemical shift numbering. First residue of sequence given must correspond to 1 in chemical shift files. Correct this or use -n flag to offset numbering.\n";
+		}
+		my $ppmlim = 15;
+		if ( abs ($c[1] - $coil_cs{$atom}{$aa[$c[0]-1]})  > $ppmlim){
+			die "#WARNING: $atom chemical shift appears to be of the wrong type for res $c[0]\n";
+			print "#(Greater than $ppmlim ppm difference from random coil)\n";
+		}
+	}
+	close CS_INPUT;
+
+	#Load secondary structure shifts and standard deviations
+	open (SSREF, "< $ssref{$atom}") or die "ERROR: Failed to open $ssref{$atom}!\n";
+	while (<SSREF>){
+		next if ((/aa/) || (/^!/)); #skip header lines
+		die "ERROR: Improper format for $ssref{$atom} secondary structure chemical shift file!\n" if (split != 5);
+		my @c = split;
+		$strand_cs{$atom}{$c[0]} = $c[1];
+		$strand_sd{$atom}{$c[0]} = $c[2];
+		$helix_cs{$atom}{$c[0]} = $c[3];
+		$helix_sd{$atom}{$c[0]} = $c[4];
+	}
+	close SSREF;
+}	
+
+my $ref = 0;
+if ($ref_flag){
+	if ($flag{CA} && $flag{CB}){
+		$ref = &reference_shifts();
+	}else{
+		die "ERROR: Need CA and CB shifts for automatic rereferencing!\n";
+	}
+}
+
+#Rereferncing: applies both automatic ($ref) and manual ($ref_set) offsets
+#major differences from ssp.pl is offset is applied to ALL chemical shifts, not just carbon
+die "ERROR: You need to specify some kind of rereferencing: automatic (-r) and or manual (-o)!\n" unless ($ref_flag || $ref_set);
+print '#REFERENCING OFFSET: ', $ref + $ref_set, "\n";
+foreach (keys %csref){
+	my $atom = $_;
+	foreach(0..($protein_size-1)){
+		$cs{$atom}[$_] += ($ref + $ref_set) if ($cs{$atom}[$_]);
+	}
+}
+
+###OUTPUT REREFERENCED CHEMICAL SHIFT FILES
+foreach (keys %csref){
+	my $atom = $_;
+	next unless ($flag{$atom}); #unless using atom
+
+	my ($outfile, $suffix) = split (/\./, $flag{$atom});
+	$outfile .= "_reref.$suffix";
+	open (OUTFILE, "> $outfile") or die "ERROR: Can't open output file $outfile\n";
+	print "Writing $outfile\n";
+	foreach(0..($protein_size-1)){
+		printf OUTFILE "%d\t%.2f\n", $_+1, $cs{$atom}[$_] if ($cs{$atom}[$_]);
+		
+	}
+	close OUTFILE;
+}
+	
+
+	
+
+
+
+###REREFERENCING FUNCTION
+#minimization is very similar assuming local minimum is global minimum (which it always is with CA and CB
+sub reference_shifts {
+	my $test_size = 0.5;
+	my $reftest = 0;
+	my $dir = 0; #direction
+	while ($test_size > 0.0002){ #Precision in rereferencing
+		my $x = &test_ref($reftest);
+		my $plus = &test_ref($reftest + $test_size);
+		if ($plus < $x){
+			$reftest += $test_size;
+			$dir = 1;
+		} else {
+			if ($dir == 1){
+				$dir = 0;
+			}
+		}
+		my $min = &test_ref($reftest - $test_size);
+		if ($min < $x){
+			$reftest -= $test_size;
+			$dir = -1;
+		
+		} else {
+			if ($dir == -1){
+				$dir = 0;
+			}
+		}
+		$test_size = ($test_size / 2) if ($dir == 0);
+	}
+	return $reftest;
+}
+	
+###Get an output value for a given referencing offset
+##The output of this function is minimized by adjusting the offset
+sub test_ref {
+	my $reftemp = $_[0];
+	my $diff_alpha = 0;
+	my $diff_beta = 0;
+	foreach(0..($protein_size-1)){
+		next if (($aa[$_+1] eq 'P') && $ignore_pro);
+		next if (($aa[$_] eq 'C') && $ignore_cys);
+		if ($cs{CA}[$_] && $cs{CB}[$_]){
+			my $dca = ($cs{CA}[$_] - $coil_cs{CA}{$aa[$_]} + $reftemp);  
+			my $dcb = ($cs{CB}[$_] - $coil_cs{CB}{$aa[$_]} + $reftemp);  
+			if ( ($dca - $dcb) >= 0){ #if alpha
+			#if ($dca * ($helix_cs{CA} - $coil_cs{CA}{$aa[$_]}) > 0){
+				my $alpha_ca = $helix_cs{CA}{$aa[$_]} - $coil_cs{CA}{$aa[$_]};
+				my $alpha_cb = $helix_cs{CB}{$aa[$_]} - $coil_cs{CB}{$aa[$_]};
+				my $target_cb = ($dca / $alpha_ca)*$alpha_cb;
+				$diff_alpha +=($dcb- $target_cb);
+			}
+			#if ($dcb * ($strand_cs{CB} - $coil_cs{CB}{$aa[$_]}) > 0){
+			if ( ($dca - $dcb) < 0){  # if beta 
+				my $beta_ca = $strand_cs{CA}{$aa[$_]} - $coil_cs{CA}{$aa[$_]};
+				my $beta_cb = $strand_cs{CB}{$aa[$_]} - $coil_cs{CB}{$aa[$_]};
+				my $target_ca = ($dcb / $beta_cb)*$beta_ca;
+				$diff_beta += ($dca - $target_ca);
+			}
+		}	
+	}
+        return (abs($diff_alpha) +  abs($diff_beta));
+}

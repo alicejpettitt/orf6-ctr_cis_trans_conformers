@@ -25,10 +25,12 @@ Open the Jupyter notebook with `jupyter lab` and select the notebook from the si
 #### System subdirectories   
 Each system used in the manuscript has a subdirectory containing experimental data and PLUMED files required for `ORF6-CTR-METADYNAMICS-ANALYSIS.ipynb`. 
 1. The PBMetaD bias from the `COLVAR_nohead` file is required for blocking analysis for each system.
+
 2. The chemical shifts and `camshift_plumed.dat` are available to run CamShift (1) for each trajectory locally. Experimental chemical shift data was measured at 310.15 K (37 degrees celsius). 
 
 For `a03ws_run1`, `a03ws_run2`, and `c36m`
 3. `camshift_cis` and `camshift_trans` directories are available to run CamShift locally. Experimental chemical shift data was measured at 310.15 K (37 degrees celsius). 
+
 4. `SAXS_bme_reweight` the scripts to perform the SAXS BME reweighting (see below) and the output from the BME reweighting `<system>_saxs_bme_reweight_output.dat`, which contains the experimental and ensemble-averaged system predicted SAXS data, as well as details on the fitting at the end of the file. 
 
 #### Blocking analysis 
@@ -37,13 +39,18 @@ Blocking analysis scripts were taken from [`blocking analysis scripts`](https://
 ## SAXS BME reweight 
 We used the following two GitHub repositories to perform the SAXS BME reweighting [`here`](https://github.com/KULL-Centre/papers/tree/main/2021/aSYN-ahmed-et-al) and [`here`](https://github.com/KULL-Centre/BME) (3-4). 
 
+
 Pepsi-SAXS was used to predict the SAXS scattering curve for each frame in the trajectory. See `pepsi_saxs.py` for an adapted script for how to do this (3). For each system the calculated SAXS scattering curves were combined into one file for BME reweighting. The files are hosted on Zenodo and can be downloaded [`add when I have the link`](add when I have), along with the experimental data.
 
+
 The first line in the calculated SAXS data is a header that defines the type of data and the error model it should use. BME has only gaussain error model implemented
-	
+
+ 
 	DATA=SAXS PRIOR=GAUSS    
 
+
 In column 1, 2 and 3 we have the experimental value of the: scatter vector, intensity and error, respectively. The number of the rows is equal to the number of data points. In this manuscript we have  2570.
+
 
 The `BME.py` script was used to perform the SAXS reweighting. Here, we used a theta value of 100. To repeat this analysis yourself, use the following notebook: [`here`](https://github.com/KULL-Centre/papers/blob/main/2021/aSYN-ahmed-et-al/BME_analysis/BME_analysis_example.ipynb) 
 

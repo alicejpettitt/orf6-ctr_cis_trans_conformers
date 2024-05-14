@@ -1,4 +1,4 @@
-# An integrative characterisation of proline cis and trans conformers of a disordered peptide
+# An integrative characterisation of proline cis and trans conformers in a disordered peptide
 
 This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. 
 

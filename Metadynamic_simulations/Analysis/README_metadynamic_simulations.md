@@ -20,7 +20,7 @@ If the above environments do not work, the following packages are required for r
 - Seaborn
 - SciKit-Learn 
 
-Open the Jupyter notebook with `jupyter lab` and select the notebook from the sidebar. Large data files referenced in the Notebook (including trajectories, metadynamics weights, and SAXS BME weights) are hosted on Zenodo [`here`](). The data should be downloaded and placed in a directory called `Metadynamic_simulations_Zenodo`. This should be in the same diectory as `ORF6-CTR-METADYNAMICS-ANALYSIS.ipynb`, with the `README_metadynamic_simulations.md` file. 
+Open the Jupyter notebook with `jupyter lab` and select the notebook from the sidebar. Large data files referenced in the Notebook (including trajectories, metadynamics weights, and SAXS BME weights) are hosted on Zenodo [`https://doi.org/10.5281/zenodo.13748215`](https://doi.org/10.5281/zenodo.13748215). The data should be downloaded and placed in a directory called `Metadynamic_simulations_Zenodo`. This should be in the same diectory as `ORF6-CTR-METADYNAMICS-ANALYSIS.ipynb`, with the `README_metadynamic_simulations.md` file. 
 
 #### System subdirectories   
 Each system used in the manuscript has a subdirectory containing experimental data and PLUMED files required for `ORF6-CTR-METADYNAMICS-ANALYSIS.ipynb`. 

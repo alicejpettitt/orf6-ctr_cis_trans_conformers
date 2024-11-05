@@ -1,6 +1,6 @@
 # An integrative characterisation of proline cis and trans conformers in a disordered peptide
 
-This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. 
+This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. DOI: [`10.1016/j.bpj.2024.09.028`](10.1016/j.bpj.2024.09.028)
 
 ## Subdirectories (ORF6-CTR)
 1. `1H-15N-temp-titration` 1H-15N heteronuclear single quantum coherence (HSQC) chemical shift assignments at 275.65, 278, 283, 288, 293, 298, 303, 308, 310, and 313 K. This data was used to calculate cis-P57 populations at 288 and 310 K, and to produce the Van't Hoff plots. 

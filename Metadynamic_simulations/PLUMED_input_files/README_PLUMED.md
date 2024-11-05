@@ -1,4 +1,4 @@
-These are the PLUMED input files used to produce the simulations as reported in 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. 
+These are the PLUMED input files used to produce the simulations as reported in 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. DOI: [`10.1016/j.bpj.2024.09.028`](10.1016/j.bpj.2024.09.028)
 
 There are four subdirectories containing relevant input files to rerun the simulations for the `a03ws_run1`, `a03ws_run2`, `a99sb`, and `C36m simulations`. 
 

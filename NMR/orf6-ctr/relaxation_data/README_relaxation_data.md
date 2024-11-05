@@ -1,6 +1,6 @@
 # An integrative characterisation of proline cis and trans conformers in a disordered peptide
 
-This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. {DOI}
+This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. DOI: [`10.1016/j.bpj.2024.09.028`](10.1016/j.bpj.2024.09.028)
 
 The software package FuDA (1) was used to quantify peak intensities and to calculate 15N relaxation rates by fitting the intensity profiles to mono-exponential decay functions. Each subdirectory contains a FuDA input file (param.fuda) and the peak.list. For more details on FuDA see: https://www.ucl.ac.uk/hansen-lab/fuda/
 param.fuda is executed using nmrPipeFit.py param.fuda fuda, where output data is stored in the directory `fuda`. 

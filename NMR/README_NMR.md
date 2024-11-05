@@ -5,7 +5,7 @@ This repository contains scripts to reproduce analysis of the nuclear magnetic r
 ## Reproducibility information 
 Experimental NMR data files (.ft2 and .ft3 format) are hosted on Zenodo [`https://doi.org/10.5281/zenodo.13748215`](https://doi.org/10.5281/zenodo.13748215) for you to repeat the analysis yourself. Spectra in this manuscript were produced using NMRFAM-Sparky (1) and Adobe Illustrator. 
 
-NMR chemical shifts have been deposited in the Biological Magnetic Resonance Data Bank (BMRB; [`www.bmrb.wisc.edu`](www.bmrb.wisc.edu) under the following accession codes: 52459 for the ORF6-CTR cis-P57 and trans-P57 configurations, and 52460 for the unlabelled NAc-ORF6-CTR.
+NMR chemical shifts have been deposited in the Biological Magnetic Resonance Data Bank (BMRB; [`www.bmrb.wisc.edu`](www.bmrb.wisc.edu)) under the following accession codes: 52459 for the ORF6-CTR cis-P57 and trans-P57 configurations, and 52460 for the unlabelled NAc-ORF6-CTR.
 
 ## This repository contains:
 

@@ -1,11 +1,11 @@
 # An integrative characterisation of proline cis and trans conformers of a disordered peptide
 
-This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. 
+This repository contains scripts to reproduce analysis of the nuclear magnetic resonance spectroscopy (NMR) chemical shifts, 15N relaxation data, and 15N diffusion data as reported in the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. DOI: [`10.1016/j.bpj.2024.09.028`](10.1016/j.bpj.2024.09.028)
 
 ## Reproducibility information 
 Experimental NMR data files (.ft2 and .ft3 format) are hosted on Zenodo [`https://doi.org/10.5281/zenodo.13748215`](https://doi.org/10.5281/zenodo.13748215) for you to repeat the analysis yourself. Spectra in this manuscript were produced using NMRFAM-Sparky (1) and Adobe Illustrator. 
 
-Chemical shift assignments have been deposited on BMRB https://bmrb.io/
+NMR chemical shifts have been deposited in the Biological Magnetic Resonance Data Bank (BMRB; [`www.bmrb.wisc.edu`](www.bmrb.wisc.edu) under the following accession codes: 52459 for the ORF6-CTR cis-P57 and trans-P57 configurations, and 52460 for the unlabelled NAc-ORF6-CTR.
 
 ## This repository contains:
 

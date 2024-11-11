@@ -3,7 +3,7 @@
 This repository contains scripts to reproduce analysis of the trajectories from metadynamics simulations as reported for the manuscript 'An integrative characterisation of proline cis and trans conformers in a disordered peptide' by Pettitt et al. DOI: [`10.1016/j.bpj.2024.09.028`](10.1016/j.bpj.2024.09.028)
 
 ## Reproducibility information 
-For input files to generate trajectories, see ../PLUMED_input_files or PLUMED NEST (plumID:24.027, https://www.plumed-nest.org/eggs/24/027/).
+For input files to generate trajectories, see ../PLUMED_input_files or PLUMED NEST (plumID:24.027, https://www.plumed-nest.org/eggs/24/027/). [![plumID:24.027](https://www.plumed-nest.org/eggs/24/027/badge.svg)](https://www.plumed-nest.org/eggs/24/027/)
 
 ## This repository contains: 
 

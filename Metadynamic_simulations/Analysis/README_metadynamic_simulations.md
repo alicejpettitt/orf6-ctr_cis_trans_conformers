@@ -37,7 +37,7 @@ Blocking analysis scripts were taken from [`blocking analysis scripts`](https://
 ## SAXS BME reweight 
 We used the following two GitHub repositories to perform the SAXS BME reweighting [`here`](https://github.com/KULL-Centre/papers/tree/main/2021/aSYN-ahmed-et-al) and [`here`](https://github.com/KULL-Centre/BME) (3-4). 
 
-Pepsi-SAXS was used to predict the SAXS scattering curve for each frame in the trajectory. See `pepsi_saxs.py` for an adapted script for how to do this (3). For each system the calculated SAXS scattering curves were combined into one file for BME reweighting. The files are hosted on Zenodo and can be downloaded [`add when I have the link`](add when I have), along with the experimental data.
+Pepsi-SAXS was used to predict the SAXS scattering curve for each frame in the trajectory. See `pepsi_saxs.py` for an adapted script for how to do this (3). For each system the calculated SAXS scattering curves were combined into one file for BME reweighting. The files are hosted on Zenodo and can be downloaded at [`https://doi.org/10.5281/zenodo.13748215`](https://doi.org/10.5281/zenodo.13748215), along with the experimental data.
 
 The first line in the calculated SAXS data is a header that defines the type of data and the error model it should use. BME has only gaussain error model implemented
 	
